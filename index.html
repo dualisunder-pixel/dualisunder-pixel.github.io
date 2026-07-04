@@ -1,0 +1,939 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Дверной проём — 3D схема</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;background:#f3f1ec}
+  #c{position:fixed;inset:0;display:block;cursor:grab;touch-action:none}
+  #c.drag{cursor:grabbing}
+  #panel{position:fixed;top:12px;left:12px;z-index:2;width:274px;background:rgba(255,255,255,.93);backdrop-filter:blur(6px);border:1px solid #ddd;border-radius:12px;padding:14px 16px;box-shadow:0 4px 18px rgba(0,0,0,.08);max-height:calc(100% - 24px);overflow:auto;box-sizing:border-box}
+  h1{font-size:15px;margin:0 0 6px}
+  .muted{color:#666;font-size:12px;margin:0 0 10px}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:4px 0}
+  .row label{font-size:12.5px;color:#333;flex:1}
+  .row input{width:72px;padding:3px 6px;border:1px solid #ccc;border-radius:6px;font:inherit;text-align:right}
+  .row select{flex:1.4;padding:3px 4px;border:1px solid #ccc;border-radius:6px;font:12px system-ui;max-width:170px}
+  .derived{background:#eef4ff;border:1px solid #cbdcf8;border-radius:8px;padding:8px 10px;margin:10px 0;font-size:13px}
+  .derived b{color:#1d4ed8}
+  .btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  button{font:12.5px system-ui;padding:5px 9px;border:1px solid #ccc;border-radius:8px;background:#fff;cursor:pointer}
+  button:hover{background:#f0f0f0}
+  .chk{display:flex;gap:6px;align-items:center;font-size:12.5px;margin-top:8px}
+  .dgrp{margin:6px 0 2px}
+  .dhead{font-size:12px;font-weight:600;color:#555;margin-bottom:1px}
+  .drow{display:flex;align-items:center;gap:6px;margin:1px 0;font-size:12px;color:#555}
+  .drow span{width:52px}
+  .drow input[type=range]{flex:1;accent-color:#2563eb;height:18px;margin:0}
+  .drow b{width:34px;text-align:right;font-size:12px;color:#1d4ed8}
+  details{margin-top:10px;font-size:12px;color:#555}
+  details ul{margin:6px 0 2px;padding-left:16px}
+  details a{color:#1d4ed8;text-decoration:none}
+  details a:hover{text-decoration:underline}
+  #hint{position:fixed;right:14px;bottom:10px;z-index:2;font-size:12px;color:#888;background:rgba(255,255,255,.7);padding:2px 8px;border-radius:6px}
+</style>
+</head>
+<body>
+<div id="panel">
+  <h1>Дверной проём — 3D схема</h1>
+  <p class="muted">По эскизу. Кухня — за проёмом, гостиная — перед ним; двери складываются наружу, в гостиную. Все размеры в мм — правьте, модель перестроится. Тяните любое полотно мышкой.</p>
+  <div class="derived">
+    Проём: <b><span id="dW"></span> × <span id="dH"></span></b> мм<br>
+    В свету (после коробки): <b><span id="dCl"></span></b> мм<br>
+    Полотна: <b>4 × <span id="dS"></span></b> мм, толщина <span id="dT"></span> мм<br>
+    Высота потолка: <b><span id="dC"></span></b> мм<br>
+    Стена целиком: <b><span id="dL"></span></b> мм<br>
+    <span id="dGap"></span><br>
+    <span id="dPack"></span><br>
+    Вынос оси петель: <b><span id="dOff"></span></b> мм
+  </div>
+  <div class="row">
+    <label>Петля у коробки</label>
+    <select id="hingeSel">
+      <option value="parl:51" selected>Parliament 102×152 (ось 51)</option>
+      <option value="parl:38">Parliament 102×127 (ось 38)</option>
+      <option value="parl:25">Parliament 102×102 (ось 25)</option>
+      <option value="conc:14">Скрытая Tectus TE 541 (ось 14)</option>
+      <option value="conc:8">Скрытая обычная (ось ~8)</option>
+      <option value="auto">расчётный минимум</option>
+    </select>
+  </div>
+  <div class="btns" style="margin:8px 0 4px">
+    <button id="bHalf">Половинки</button>
+    <button id="bPack">В пакет (90°)</button>
+    <button id="bOpen">На стену (180°)</button>
+    <button id="bClose">Закрыть</button>
+  </div>
+  <div class="dgrp">
+    <div class="dhead">Левая дверь</div>
+    <div class="drow"><span>поворот</span><input type="range" id="sLa" min="0" max="180" step="1"><b id="vLa"></b></div>
+    <div class="drow"><span>складка</span><input type="range" id="sLb" min="0" max="180" step="1"><b id="vLb"></b></div>
+  </div>
+  <div class="dgrp">
+    <div class="dhead">Правая дверь</div>
+    <div class="drow"><span>поворот</span><input type="range" id="sRa" min="0" max="180" step="1"><b id="vRa"></b></div>
+    <div class="drow"><span>складка</span><input type="range" id="sRb" min="0" max="180" step="1"><b id="vRb"></b></div>
+  </div>
+  <label class="chk" style="margin-top:2px"><input type="checkbox" id="syncDoors" checked> двигать обе двери синхронно</label>
+  <div id="fields"></div>
+  <label class="chk"><input type="checkbox" id="sideBack"> складывать в кухню (в обратную сторону)</label>
+  <div class="btns">
+    <button id="v1">Из гостиной</button>
+    <button id="v4">Из кухни</button>
+    <button id="v2">Фронтально</button>
+    <button id="v3">Сверху</button>
+  </div>
+  <label class="chk"><input type="checkbox" id="showDims" checked> показывать размеры</label>
+  <label class="chk"><input type="checkbox" id="showPlan" checked> план петель (вид сверху)</label>
+  <details>
+    <summary>Нюансы конструкции</summary>
+    <ul>
+      <li>Две двери-«книжки», каждая из двух полотен по ~503 мм — всего 4 полотна толщиной 40 мм.</li>
+      <li>Полотна двигаются независимо. Внешнее (у притвора) складывается средним шарниром на пристенное до 180°, не двигая его — так освобождается центр проёма ~1015 мм, а пристенные половинки остаются на месте (кнопка «Половинки»). Пристенное полотно отдельно поворачивается на петлях у коробки 0–180°; вместе это даёт пакет (90°) и полное откидывание на стену (180°).</li>
+      <li>В пакете зазор между полотнами равен «бочке» среднего шарнира: со скрытой ~7 мм, с накладной карточной 13 мм — врезные ручки помещаются в обоих случаях.</li>
+      <li><b>Минимальный вынос оси</b> = (наличник 25 + полотно 40)/2 + полузазор пакета: со скрытым средним шарниром (Ø7) ≈ <b>36 мм</b>, с накладной карточной (Ø13) ≈ 39 мм. С обычными карточными петлями у коробки (ось у кромки) пакет упрётся в наличник и не откинется на 180° — это ключевой вывод макета.</li>
+      <li><b>Реальные петли, дающие 180° мимо наличника — parliament (проекционные)</b>: типоразмеры 102×102 / 102×127 / 102×152 мм, проекция 50 / 76 / 102 → ось на ~25 / 38 / 51 мм. При полотне 40, наличнике 25 и скрытом среднем шарнире (Ø7): <b>102×152 — запас ~30 мм, 102×127 — запас ~4 мм (проходит)</b>, 102×102 — упрётся. С накладной карточной в притворе (Ø13) запасы меньше на 6 мм (102×127 уже не проходит). Для интерьера ищите декоративные латунь/бронза/чёрные кованые.</li>
+      <li><b>Где купить</b>:
+        <ul>
+          <li><a href="https://www.carlislebrass.com/parliament-hinges-42109" target="_blank" rel="noopener">Carlisle Brass — Parliament Hinges</a> — интерьерные латунные/полированные, размеры до 102×152 (ось ~51 мм) — <b>подходят для 180°</b>.</li>
+          <li><a href="https://www.suffolklatchcompany.com/products/parliament-hinges" target="_blank" rel="noopener">Suffolk Latch — Parliament Old English</a> — красивая литая латунь, 5 финишей (чёрный, бронза, состаренное серебро…), но проекция 48 → ось ~24 мм: для нашего пакета выноса не хватит (поведение — как пресет 102×102), годятся для одиночных дверей с тонким наличником.</li>
+          <li><a href="https://www.cookebrothers.co.uk/hinges/architectural-hinges/special-options/projection-parliament-hinges.html" target="_blank" rel="noopener">Cooke Brothers — Projection &amp; Parliament</a> — проекция под заказ, если нужен точный вынос 40–50 мм.</li>
+          <li><a href="https://www.gjohns.co.uk/parliament-projection-hinges-for-doors-up-to-120kg-matt-black.html" target="_blank" rel="noopener">G Johns — Hi-Load Projection, чёрный матовый</a> — стальные, до 120 кг.</li>
+          <li><a href="https://www.championtimber.com/parliament-hinge-2-pack-21896453-c" target="_blank" rel="noopener">Champion Timber — Parliament 100 мм, пара</a> — бюджетный вариант.</li>
+          <li><a href="https://hafele-shop.ru/catalog/furnitura-dlya-dverey/dvernye-petli/skrytye-simonswerk/skrytaya-dvernaya-petlya-tectus-te-340-3d-cvet-f1-serebristyj.html" target="_blank" rel="noopener">Häfele RU — скрытая Simonswerk Tectus TE 340 3D</a>, <a href="http://dvermeh.ru/tectus" target="_blank" rel="noopener">обзор серии Tectus</a> — для варианта «скрытые + пакет до ~90°».</li>
+        </ul>
+      </li>
+      <li><b>Скрытые петли (Tectus/Kubica/Anselmi, как на референсе) для этой задачи геометрически не работают</b>: их ось у плоскости коробки (даже спец-модели TE 311/541 3D дают смещение всего 12–14 мм), а пакету нужно ~39. То же с пивотами — их ось внутри полотна. Выберите пресет «Скрытая» и посмотрите: физика остановит пакет на ~100–110°, дальше он упирается в наличник. <b>Красивый компромисс со скрытыми петлями</b>: складывать пакет до ~90–100° — он встаёт перпендикулярно у откоса, проём полностью свободен, фурнитуры не видно вовсе (выступ в гостиную ~560 мм).</li>
+      <li><b>Средний шарнир — по умолчанию скрытая петля с раскрытием 180°</b> (Simonswerk Tectus TE 340, Kubica, Anselmi — врезаются в кромки обоих полотен): при развёрнутых створках не видна вовсе, внешнее полотно откидывается на пристенное лицом к лицу с зазором ~7 мм. Это работает с <b>любой</b> петлёй у коробки. Альтернатива — накладная карточная 100×70×2,5 (видимая латунная, Ø бочки 13): поле «Ср. шарнир: Ø бочки», значение Ø ≤ 8 = скрытая.</li>
+      <li><b>Физика включена</b>: полотна не проходят сквозь стену и наличники — угол останавливается в момент касания. Чтобы развернуть прижатый к стене пакет, сначала отведите пристенное полотно от стены.</li>
+      <li>Управление: мышкой за полотно или ползунками «поворот»/«складка» в панели (точность 1°, физика тоже действует). Галочка «синхронно» двигает обе двери зеркально.</li>
+      <li>Коробка 40 мм → в свету 2030 × 2355. Зазоры: по 3 мм у петель, в шарнирах и притворе, ~20 мм сверху под направляющую, 10 мм снизу.</li>
+      <li>Открывание наружу — из кухни в гостиную; галочкой можно развернуть в кухню.</li>
+      <li>На 180° пакет лежит вдоль простенка поверх наличника (зазор — в индикаторе, с петлёй 102×152 ≈ 24 мм): выступ пакета от стены ≈ 140 мм, вдоль стены ~510 мм. На 90° пакет торчит в гостиную на ~560 мм.</li>
+      <li>Наличники 95 × 25 мм с обеих сторон. Верхнему нужно 75 мм над проёмом (95 − 20 перекрытия коробки): при 76 мм до потолка помещается с зазором всего 1 мм — индикатор в панели пересчитывается при правке размеров.</li>
+      <li>Верх полотен — остекление с раскладкой, низ — филёнка (по референсу). Ручки — врезные, заподлицо: накладные не дадут полотнам сложиться в пакет.</li>
+    </ul>
+  </details>
+</div>
+<canvas id="c"></canvas>
+<div id="hint">Створки — мышкой или ползунками в панели · фон — вращение · колесо — масштаб</div>
+<script>
+'use strict';
+const DEG = Math.PI/180;
+const MAXF = Math.PI; // 180° — пакет плашмя к стене
+const P = {
+  pierL: 720, openW: 2110, pierR: 770,
+  openH: 2395, above: 76, t: 140,
+  Lleft: 2080, winOff: 300, winW: 900, sillH: 850, winH: 1400,
+  doorTh: 40, frameW: 40, casW: 95, casT: 25,
+  hingeOff: 51,        // вынос оси петли у коробки (parliament 102×152 ≈ 51)
+  hingeType: 'parl',   // parl — parliament (видимая), conc — скрытая (Tectus-типа)
+  midDia: 7            // средний шарнир: скрытая петля в кромках полотен (Ø ≤ 8 = скрытая);
+                       // 13 — видимая накладная карточная
+};
+const FIELDS = [
+  ['pierL','Простенок слева от проёма'],
+  ['openW','Ширина проёма'],
+  ['pierR','Простенок справа'],
+  ['openH','Высота проёма'],
+  ['above','От проёма до потолка'],
+  ['t','Толщина стены (торец)'],
+  ['doorTh','Полотно: толщина'],
+  ['frameW','Коробка: брус'],
+  ['casW','Наличник: ширина'],
+  ['casT','Наличник: толщина'],
+  ['hingeOff','Петля: вынос оси'],
+  ['midDia','Ср. шарнир: Ø бочки'],
+  ['Lleft','Стена с окном, длина'],
+  ['winOff','От угла до окна'],
+  ['winW','Окно: ширина'],
+  ['sillH','Окно: подоконник'],
+  ['winH','Окно: высота'],
+];
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0;
+
+let yaw = 0.45, pitch = -0.26, dist = 12000;
+// у каждой двери два независимых угла: a — пристенное полотно на петлях у коробки,
+// b — складка внешнего полотна на среднем шарнире (0 = развёрнуто, π = сложено на пристенное)
+const ang = {L: {a: 0, b: 2.6}, R: {a: 0.5, b: 0}};
+
+function hex2rgb(h){
+  return [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)];
+}
+const WALL = '#e9dfd0', FLOOR = '#c9c3b5', GLASS = '#aecfe6',
+      FRAME = '#a97e57', DOORW = '#f2efe9', METAL = '#5a5a5a';
+
+const addV = (a,b) => [a[0]+b[0], a[1]+b[1], a[2]+b[2]];
+const mul = (a,k) => [a[0]*k, a[1]*k, a[2]*k];
+
+function makeSolid(o, A, B, C, col){
+  const det = A[0]*(B[1]*C[2]-B[2]*C[1]) - A[1]*(B[0]*C[2]-B[2]*C[0]) + A[2]*(B[0]*C[1]-B[1]*C[0]);
+  if (det < 0){ o = addV(o, C); C = mul(C, -1); }
+  const v = [];
+  const put = (ka,kb,kc) => v.push([
+    o[0]+A[0]*ka+B[0]*kb+C[0]*kc,
+    o[1]+A[1]*ka+B[1]*kb+C[1]*kc,
+    o[2]+A[2]*ka+B[2]*kb+C[2]*kc
+  ]);
+  put(0,0,0); put(1,0,0); put(1,1,0); put(0,1,0);
+  put(0,0,1); put(1,0,1); put(1,1,1); put(0,1,1);
+  return {v, col: hex2rgb(col)};
+}
+function makeBoxSolid(x0,y0,z0,x1,y1,z1,col){
+  const a=Math.min(x0,x1), b=Math.max(x0,x1), c=Math.min(y0,y1), d=Math.max(y0,y1),
+        e=Math.min(z0,z1), g=Math.max(z0,z1);
+  return makeSolid([a,c,e], [b-a,0,0], [0,d-c,0], [0,0,g-e], col);
+}
+
+let staticSolids = [], dims = [], openRect = null, roomLabels = [];
+
+function frontLen(){ return P.pierL + P.openW + P.pierR; }
+
+function rebuild(){
+  const cH = P.openH + P.above;
+  const FL = frontLen();
+  const jL = P.pierL, jR = P.pierL + P.openW;
+  const fw = P.frameW;
+  staticSolids = []; dims = [];
+  const S = staticSolids;
+
+  // пол кухни (за проёмом) и гостиной (перед проёмом)
+  const LIV = 2500; // глубина гостиной, условно
+  S.push(makeBoxSolid(-P.t, -90, -P.t, FL, 0, P.Lleft, FLOOR));
+  S.push(makeBoxSolid(-P.t, -90, -LIV, FL, 0, -P.t, '#c8a870'));
+
+  // кухня: столешница вдоль стены с окном
+  S.push(makeBoxSolid(0, 0, 700, 600, 880, P.Lleft, '#4c4a42'));
+  S.push(makeBoxSolid(0, 880, 680, 630, 920, P.Lleft, '#d8d4cc'));
+
+  // гостиная: стол и стулья (условно)
+  S.push(makeBoxSolid(1350, 730, -1950, 2250, 772, -1050, '#b98a55'));   // столешница
+  S.push(makeBoxSolid(1740, 0, -1560, 1860, 730, -1440, '#a97e57'));     // опора
+  const chair = (cx, cz, bx0, bx1, bz0, bz1) => {
+    S.push(makeBoxSolid(cx-200, 420, cz-200, cx+200, 465, cz+200, '#a97e57')); // сиденье
+    S.push(makeBoxSolid(cx-30, 0, cz-30, cx+30, 420, cz+30, '#8a6a48'));       // ножка
+    S.push(makeBoxSolid(bx0, 465, bz0, bx1, 920, bz1, '#a97e57'));             // спинка
+  };
+  chair(1050, -1500, 850, 910, -1700, -1300);   // слева от стола
+  chair(2550, -1500, 2690, 2750, -1700, -1300); // справа
+  chair(1800, -2200, 1600, 2000, -2460, -2400); // со стороны зрителя
+
+  roomLabels = [
+    {p: [2500, 20, 1500], t: 'КУХНЯ'},
+    {p: [750, 20, -1900], t: 'ГОСТИНАЯ'}
+  ];
+
+  // стена с проёмом, z: -t..0
+  if (P.pierL > 0) S.push(makeBoxSolid(0, 0, -P.t, jL, cH, 0, WALL));
+  if (P.pierR > 0) S.push(makeBoxSolid(jR, 0, -P.t, FL, cH, 0, WALL));
+  if (P.above > 0) S.push(makeBoxSolid(jL, P.openH, -P.t, jR, cH, 0, WALL));
+
+  // стена с окном, x: -t..0
+  const w0 = Math.min(P.winOff, P.Lleft), w1 = Math.min(P.winOff + P.winW, P.Lleft);
+  const wTop = Math.min(P.sillH + P.winH, cH);
+  S.push(makeBoxSolid(-P.t, 0, -P.t, 0, cH, w0, WALL));
+  if (w1 < P.Lleft) S.push(makeBoxSolid(-P.t, 0, w1, 0, cH, P.Lleft, WALL));
+  if (w1 > w0){
+    S.push(makeBoxSolid(-P.t, 0, w0, 0, P.sillH, w1, WALL));
+    if (wTop < cH) S.push(makeBoxSolid(-P.t, wTop, w0, 0, cH, w1, WALL));
+    S.push(makeBoxSolid(-90, P.sillH, w0 + 8, -55, wTop, w1 - 8, GLASS));
+  }
+
+  // дверная коробка
+  S.push(makeBoxSolid(jL, 0, -P.t, jL + fw, P.openH, 0, FRAME));
+  S.push(makeBoxSolid(jR - fw, 0, -P.t, jR, P.openH, 0, FRAME));
+  S.push(makeBoxSolid(jL + fw, P.openH - fw, -P.t, jR - fw, P.openH, 0, FRAME));
+
+  // наличники с обеих сторон стены
+  const cT = P.casT, cw = P.casW;
+  for (const [za, zb] of [[0, cT], [-P.t - cT, -P.t]]){
+    S.push(makeBoxSolid(jL - (cw - 20), 0, za, jL + 20, P.openH - 20, zb, FRAME));
+    S.push(makeBoxSolid(jR - 20, 0, za, jR + (cw - 20), P.openH - 20, zb, FRAME));
+    S.push(makeBoxSolid(jL - (cw - 20), P.openH - 20, za, jR + (cw - 20), P.openH + cw - 20, zb, FRAME));
+  }
+
+  openRect = {x0: jL, x1: jR, oH: P.openH};
+
+  // размерные линии
+  dims.push({a:[jL, 1500, 15],           b:[0, 1500, 15],            t:String(P.pierL)});
+  dims.push({a:[jL, 26, 320],            b:[jR, 26, 320],            t:String(P.openW), c:1});
+  dims.push({a:[jR, 1500, 15],           b:[FL, 1500, 15],           t:String(P.pierR)});
+  dims.push({a:[jL, 1900, 0],            b:[jL, 1900, -P.t],         t:String(P.t)});
+  dims.push({a:[jL+P.openW*0.5, 0, -25], b:[jL+P.openW*0.5, P.openH, -25], t:String(P.openH), c:1});
+  dims.push({a:[jL+P.openW*0.3, P.openH, -25], b:[jL+P.openW*0.3, cH, -25], t:String(P.above)});
+  dims.push({a:[130, 26, 0],             b:[130, 26, P.Lleft],       t:String(P.Lleft)});
+
+  const g = doorGeom();
+  const capGap = P.above - (P.casW - 20); // влезет ли наличник над проёмом до потолка
+  document.getElementById('dGap').innerHTML = capGap >= 0
+    ? `Наличник над проёмом: <b style="color:#15803d">помещается, зазор ${capGap} мм</b>`
+    : `Наличник над проёмом: <b style="color:#dc2626">НЕ помещается, не хватает ${-capGap} мм</b>`;
+  document.getElementById('dOff').textContent = g.off;
+  // пройдёт ли пакет на 180° мимо наличника с выбранной петлёй
+  const pack180 = Math.round(2*(g.off - g.jo) - P.doorTh - P.casT);
+  document.getElementById('dPack').innerHTML = pack180 >= 0
+    ? `Пакет на 180°: <b style="color:#15803d">проходит наличник, зазор ${pack180} мм</b>`
+    : `Пакет на 180°: <b style="color:#dc2626">упрётся в наличник, не хватает ${-pack180} мм</b>`;
+  document.getElementById('dW').textContent = P.openW;
+  document.getElementById('dH').textContent = P.openH;
+  document.getElementById('dCl').textContent = (P.openW - 2*fw) + ' × ' + (P.openH - fw);
+  document.getElementById('dS').textContent = Math.round(g.w) + ' × ' + Math.round(g.h);
+  document.getElementById('dT').textContent = P.doorTh;
+  document.getElementById('dC').textContent = cH;
+  document.getElementById('dL').textContent = FL;
+}
+
+// ---------- двери-книжки ----------
+function side(){ return document.getElementById('sideBack').checked ? 1 : -1; } // по умолчанию — в гостиную (z < 0)
+
+function doorGeom(){
+  const Sd = side();
+  const fw = P.frameW, th = P.doorTh;
+  const jL = P.pierL, jR = P.pierL + P.openW;
+  const cw = P.openW - 2*fw, ch = P.openH - fw;
+  const zH = Sd > 0 ? 0 : -P.t;
+  // вынос оси — из выбранной петли (parliament); минимум для 180°: (наличник + полотно)/2
+  const off = P.hingeOff;
+  return {
+    S: Sd, th, off,
+    jo: P.midDia/2,                  // вынос среднего шарнира = радиус бочки карточной петли
+    w: Math.max(50, (cw/2 - 9)/2),   // ширина одного полотна
+    h: Math.max(100, ch - 30),       // высота полотна
+    zH,
+    zA: zH + Sd*off,                 // плоскость осей петель
+    xhL: jL + fw + 3,
+    xhR: jR - fw - 3
+  };
+}
+
+// ---------- геометрия двери в плане (x,z) и физика столкновений ----------
+function doorPlan(k){
+  const g = doorGeom();
+  const d = ang[k];
+  const sgn = k === 'L' ? 1 : -1;
+  const xh = k === 'L' ? g.xhL : g.xhR;
+  const a1 = d.a, a2 = d.a + d.b;
+  const u = t => [sgn*Math.cos(t), g.S*Math.sin(t)];
+  const m = t => [sgn*Math.sin(t), -g.S*Math.cos(t)];
+  const u1 = u(a1), m1 = m(a1), u2 = u(a2), m2 = m(a2);
+  const O1 = [xh + m1[0]*g.off, g.zA + m1[1]*g.off];
+  const JA = [O1[0] + u1[0]*(g.w+3) - m1[0]*g.jo, O1[1] + u1[1]*(g.w+3) - m1[1]*g.jo];
+  const O2 = [JA[0] + m2[0]*g.jo, JA[1] + m2[1]*g.jo];
+  const quad = (O, uu, mm) => [
+    [O[0], O[1]],
+    [O[0]+uu[0]*g.w, O[1]+uu[1]*g.w],
+    [O[0]+uu[0]*g.w+mm[0]*g.th, O[1]+uu[1]*g.w+mm[1]*g.th],
+    [O[0]+mm[0]*g.th, O[1]+mm[1]*g.th]
+  ];
+  return {g, k, sgn, xh, O1, u1, m1, O2, u2, m2, JA, q1: quad(O1,u1,m1), q2: quad(O2,u2,m2)};
+}
+
+function polysSeparated(A, B){
+  for (let i = 0; i < A.length; i++){
+    const j = (i+1) % A.length;
+    const nx = -(A[j][1]-A[i][1]), nz = A[j][0]-A[i][0];
+    let aMin = 1/0, aMax = -1/0, bMin = 1/0, bMax = -1/0;
+    for (const p of A){ const v = p[0]*nx + p[1]*nz; if (v<aMin)aMin=v; if (v>aMax)aMax=v; }
+    for (const p of B){ const v = p[0]*nx + p[1]*nz; if (v<bMin)bMin=v; if (v>bMax)bMax=v; }
+    const eps = 0.5 * Math.hypot(nx, nz); // допуск 0.5 мм
+    if (aMax < bMin + eps || bMax < aMin + eps) return true;
+  }
+  return false;
+}
+function quadHitsRect(q, o){
+  const r = [[o[0],o[1]],[o[2],o[1]],[o[2],o[3]],[o[0],o[3]]];
+  return !polysSeparated(q, r) && !polysSeparated(r, q);
+}
+function doorObstacles(g){
+  const jL = P.pierL, jR = P.pierL + P.openW;
+  const cw = P.casW, cT = P.casT, big = 1e6;
+  const zn0 = -P.t - cT, zn1 = -P.t; // наличник со стороны гостиной
+  const zk0 = 0, zk1 = cT;           // наличник со стороны кухни
+  return [
+    [-big, -P.t, jL, 0],                 // простенок слева
+    [jR, -P.t, big, 0],                  // простенок справа
+    [jL-(cw-20), zn0, jL+20, zn1],       // наличники: гостиная
+    [jR-20, zn0, jR+(cw-20), zn1],
+    [jL-(cw-20), zk0, jL+20, zk1],       // наличники: кухня
+    [jR-20, zk0, jR+(cw-20), zk1],
+  ];
+}
+function doorCollides(k){
+  const p = doorPlan(k);
+  const obs = doorObstacles(p.g);
+  for (const q of [p.q1, p.q2])
+    for (const o of obs)
+      if (quadHitsRect(q, o)) return true;
+  return false;
+}
+// ставит угол, но не дальше границы столкновения (полотно не проходит сквозь стену и наличник)
+function setAngleClamped(k, key, target){
+  const cur = ang[k][key];
+  ang[k][key] = target;
+  if (!doorCollides(k)) return;
+  let lo = cur, hi = target;
+  for (let i = 0; i < 12; i++){
+    const mid = (lo + hi)/2;
+    ang[k][key] = mid;
+    if (doorCollides(k)) hi = mid; else lo = mid;
+  }
+  ang[k][key] = lo;
+}
+
+let leafScreens = {L1: [], L2: [], R1: [], R2: []};
+
+function buildPanel(o, u, n, g, tag, withHandle, out){
+  const w = g.w, h = g.h, th = g.th;
+  const sub = (a0,a1,b0,b1,c0,c1,col,alpha,glass) => {
+    const s = makeSolid(
+      [o[0]+u[0]*a0+n[0]*c0, o[1]+b0, o[2]+u[2]*a0+n[2]*c0],
+      mul(u, a1-a0), [0, b1-b0, 0], mul(n, c1-c0), col);
+    if (alpha) s.alpha = alpha;
+    if (glass) s.glass = true;
+    s.leaf = tag;
+    out.push(s);
+  };
+  const st = Math.min(90, w*0.22);          // стоевые
+  const gx0 = st, gx1 = w - st;
+  const gy0 = Math.min(950, h*0.42), gy1 = h - 110;
+  sub(0, gx0, 0, h, 0, th, DOORW);          // стоевая у петель
+  sub(gx1, w, 0, h, 0, th, DOORW);          // стоевая у края
+  sub(gx0, gx1, gy1, h, 0, th, DOORW);      // верхняя обвязка
+  sub(gx0, gx1, gy0-120, gy0, 0, th, DOORW);// средняя обвязка
+  sub(gx0, gx1, 0, 120, 0, th, DOORW);      // нижняя обвязка
+  sub(gx0, gx1, 120, gy0-120, 8, th-8, '#e3e0d9');                 // филёнка
+  sub(gx0, gx1, gy0, gy1, th/2-5, th/2+5, '#b9d2e4', 0.45, true);  // стекло
+  if (withHandle){
+    // врезные ручки-«лодочки»: тонкие накладки заподлицо (накладные помешали бы пакету)
+    sub(w-70, w-30, 960, 1140, -1.2, 0.6, '#4a4a4a');
+    sub(w-70, w-30, 960, 1140, th-0.6, th+1.2, '#4a4a4a');
+  }
+}
+
+function doorSolids(){
+  const g = doorGeom();
+  const out = [], labels = [];
+  // верхней направляющей нет: свободная «книжка» на петлях, иначе пакет не откинется на 180°
+
+  for (const k of ['L','R']){
+    const d = ang[k];
+    d.a = Math.max(0, Math.min(Math.PI, d.a));
+    d.b = Math.max(0, Math.min(Math.PI, d.b));
+    const sgn = k === 'L' ? 1 : -1;
+    const xh = k === 'L' ? g.xhL : g.xhR;
+    const a1 = d.a;
+    const a2 = d.a + d.b; // средний шарнир: внешнее полотно складывается НА пристенное
+    const dir = t => [sgn*Math.cos(t), 0, g.S*Math.sin(t)];  // вдоль полотна
+    const thk = t => [sgn*Math.sin(t), 0, -g.S*Math.cos(t)]; // в толщину полотна
+    const u1 = dir(a1), m1 = thk(a1);
+    const u2 = dir(a2), m2 = thk(a2);
+    const Hax = [xh, 10, g.zA];                                  // ось у коробки (с выносом)
+    const O1 = addV(Hax, mul(m1, g.off));                        // угол пристенного полотна
+    const JA = addV(addV(O1, mul(u1, g.w + 3)), mul(m1, -g.jo)); // средний шарнир (вынесен)
+    const O2 = addV(JA, mul(m2, g.jo));                          // угол внешнего полотна
+
+    buildPanel(O1, u1, m1, g, k + '1', false, out); // пристенное полотно
+    buildPanel(O2, u2, m2, g, k + '2', true, out);  // внешнее полотно (с ручкой)
+
+    // конструкция петель
+    for (const hy of [260, g.h/2, g.h - 180]){
+      if (P.hingeType === 'conc'){
+        // — скрытая петля: при закрытой двери не видна вовсе;
+        // при открытии видны светлые врезные пластины на коробке и в кромке полотна
+        if (d.a > 3*DEG){
+          out.push(makeBoxSolid(xh-5, hy+10, g.zA-13, xh-3, hy+120, g.zA+13, '#d4d4d0'));
+          out.push(makeSolid(
+            [O1[0] - u1[0]*2 + m1[0]*5, hy+25, O1[2] - u1[2]*2 + m1[2]*5],
+            mul(u1, 2), [0, 80, 0], mul(m1, g.th-10), '#d4d4d0'));
+        }
+      } else {
+        // — parliament (латунь, как Carlisle Brass): карты выходят из щели притвора к вынесенной бочке
+        // карта на коробке (неподвижная, нижний сегмент)
+        out.push(makeBoxSolid(xh-8, hy, g.zH, xh+8, hy+36, g.zA + g.S*(-7), '#b3944e'));
+        // карта на полотне (вращается, верхний сегмент)
+        out.push(makeSolid(
+          [xh + m1[0]*7 - u1[0]*8, hy+44, g.zA + m1[2]*7 - u1[2]*8],
+          mul(u1, 16), [0, 36, 0], mul(m1, g.off - 7), '#b3944e'));
+        // бочка (шарнир) на выносе
+        out.push(makeBoxSolid(xh-7, hy-4, g.zA-7, xh+7, hy+86, g.zA+7, '#8f7439'));
+      }
+
+      // — средний шарнир: Ø ≤ 8 трактуем как скрытую петлю (не видна, пока створки не сложены)
+      const midHidden = P.midDia <= 8;
+      if (!midHidden || d.b > 3*DEG){
+        const midLeaf = midHidden ? '#d4d4d0' : '#b3944e';
+        const midBarrel = midHidden ? '#c6c6c2' : '#8f7439';
+        // ось закреплена на ПРИСТЕННОЙ створке (поворачивается вместе с ней)
+        out.push(makeSolid(
+          [JA[0] - u1[0]*9 - m1[0]*9, hy, JA[2] - u1[2]*9 - m1[2]*9],
+          mul(u1, 18), [0, 90, 0], mul(m1, 18), midBarrel));
+        // карта петли на пристенной створке (со стороны складывания)
+        out.push(makeSolid(
+          [O1[0] + u1[0]*(g.w-64) - m1[0]*2.5, hy+6, O1[2] + u1[2]*(g.w-64) - m1[2]*2.5],
+          mul(u1, 60), [0, 78, 0], mul(m1, 2.5), midLeaf));
+        // карта петли на внешней створке
+        out.push(makeSolid(
+          [O2[0] + u2[0]*4 - m2[0]*2.5, hy+6, O2[2] + u2[2]*4 - m2[2]*2.5],
+          mul(u2, 60), [0, 78, 0], mul(m2, 2.5), midLeaf));
+      }
+    }
+
+    if (d.a > 3*DEG){
+      const p1 = addV(O1, mul(u1, g.w*0.5));
+      labels.push({p: [p1[0], 10 + g.h + 110, p1[2]], t: Math.round(d.a/DEG) + '°'});
+    }
+    if (d.b > 3*DEG){
+      labels.push({p: [JA[0], 10 + g.h + 240, JA[2]], t: 'складка ' + Math.round(d.b/DEG) + '°'});
+    }
+  }
+  return {out, labels};
+}
+
+// ---------- проекция ----------
+function targetPt(){
+  const cH = P.openH + P.above;
+  return [frontLen()*0.45, cH*0.42, 100];
+}
+
+function proj(p){
+  const t = targetPt();
+  const x = p[0]-t[0], y = p[1]-t[1], z = p[2]-t[2];
+  const cy = Math.cos(yaw), sy = Math.sin(yaw);
+  const x1 = x*cy + z*sy, z1 = -x*sy + z*cy;
+  const cp = Math.cos(pitch), sp = Math.sin(pitch);
+  const y2 = y*cp - z1*sp, z2 = y*sp + z1*cp + dist;
+  const f = H * 1.2;
+  return [W/2 - x1*f/z2, H/2 - y2*f/z2, z2];
+}
+
+function rvec(n){
+  const cy = Math.cos(yaw), sy = Math.sin(yaw);
+  const x1 = n[0]*cy + n[2]*sy, z1 = -n[0]*sy + n[2]*cy;
+  const cp = Math.cos(pitch), sp = Math.sin(pitch);
+  return [x1, n[1]*cp - z1*sp, n[1]*sp + z1*cp];
+}
+
+function invRot(v){
+  const cp = Math.cos(pitch), sp = Math.sin(pitch);
+  const y = v[1]*cp + v[2]*sp, z = -v[1]*sp + v[2]*cp;
+  const cy = Math.cos(yaw), sy = Math.sin(yaw);
+  return [v[0]*cy - z*sy, y, v[0]*sy + z*cy];
+}
+
+function unprojToPlane(sx, sy, h){
+  const f = H * 1.2;
+  const dir = invRot([-(sx - W/2)/f, -(sy - H/2)/f, 1]);
+  const org = addV(targetPt(), invRot([0, 0, -dist]));
+  if (Math.abs(dir[1]) < 1e-9) return null;
+  const s = (h - org[1]) / dir[1];
+  if (s <= 0) return null;
+  return [org[0] + dir[0]*s, h, org[2] + dir[2]*s];
+}
+
+const FACE_IDX = [[4,5,6,7],[1,0,3,2],[5,1,2,6],[0,4,7,3],[7,6,2,3],[0,1,5,4]];
+const LN = 1/Math.hypot(0.35,0.8,0.5);
+const L = [0.35*LN, 0.8*LN, 0.5*LN];
+
+function render(){
+  ctx.clearRect(0,0,W,H);
+  if (typeof syncSliders === 'function') syncSliders();
+  const doors = doorSolids();
+  const solids = staticSolids.concat(doors.out);
+  leafScreens = {L1: [], L2: [], R1: [], R2: []};
+
+  const faces = [];
+  for (const b of solids){
+    const pv = b.v.map(proj);
+    for (let fi = 0; fi < 6; fi++){
+      const idx = FACE_IDX[fi];
+      const p0 = b.v[idx[0]], p1 = b.v[idx[1]], p2 = b.v[idx[2]];
+      const e1 = [p1[0]-p0[0], p1[1]-p0[1], p1[2]-p0[2]];
+      const e2 = [p2[0]-p1[0], p2[1]-p1[1], p2[2]-p1[2]];
+      let n = [e1[1]*e2[2]-e1[2]*e2[1], e1[2]*e2[0]-e1[0]*e2[2], e1[0]*e2[1]-e1[1]*e2[0]];
+      const nl = Math.hypot(n[0],n[1],n[2]);
+      if (nl < 1e-9) continue;
+      n = [n[0]/nl, n[1]/nl, n[2]/nl];
+      const pts = idx.map(i => pv[i]);
+      if (pts.some(p => p[2] < 100)) continue;
+      if (b.leaf) leafScreens[b.leaf].push(pts);
+      if (rvec(n)[2] >= 0) continue;
+      const zavg = (pts[0][2]+pts[1][2]+pts[2][2]+pts[3][2])/4;
+      const lam = Math.max(0, n[0]*L[0]+n[1]*L[1]+n[2]*L[2]);
+      const k = 0.60 + 0.40*lam;
+      const rgb = `${b.col[0]*k|0},${b.col[1]*k|0},${b.col[2]*k|0}`;
+      faces.push({pts, zavg, alpha: b.alpha, grid: b.glass && fi < 2,
+        col: b.alpha ? `rgba(${rgb},${b.alpha})` : `rgb(${rgb})`});
+    }
+  }
+  faces.sort((a,b) => b.zavg - a.zavg);
+  ctx.lineJoin = 'round';
+  for (const f of faces){
+    ctx.beginPath();
+    ctx.moveTo(f.pts[0][0], f.pts[0][1]);
+    for (let i=1;i<4;i++) ctx.lineTo(f.pts[i][0], f.pts[i][1]);
+    ctx.closePath();
+    ctx.fillStyle = f.col;
+    ctx.fill();
+    ctx.strokeStyle = f.alpha ? 'rgba(120,140,160,.5)' : 'rgba(70,60,45,.4)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    if (f.grid){
+      // раскладка стекла — рисуется сразу за своей гранью, чтобы её перекрывали более близкие полотна
+      const q = f.pts;
+      const lerp = (a,b,t) => [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t];
+      ctx.strokeStyle = 'rgba(250,249,246,.95)';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      const vb = lerp(q[0], q[1], 0.5), vt = lerp(q[3], q[2], 0.5);
+      ctx.moveTo(vb[0], vb[1]); ctx.lineTo(vt[0], vt[1]);
+      for (let i = 1; i <= 6; i++){
+        const t = i/7;
+        const hl = lerp(q[1], q[2], t), hr = lerp(q[0], q[3], t);
+        ctx.moveTo(hl[0], hl[1]); ctx.lineTo(hr[0], hr[1]);
+      }
+      ctx.stroke();
+      ctx.lineWidth = 1;
+    }
+  }
+
+  // контур проёма (вместе с размерами)
+  if (openRect && document.getElementById('showDims').checked){
+    const q = [
+      [openRect.x0,0,0],[openRect.x0,openRect.oH,0],
+      [openRect.x1,openRect.oH,0],[openRect.x1,0,0]
+    ].map(proj);
+    if (q.every(p => p[2] > 100)){
+      ctx.beginPath();
+      ctx.moveTo(q[0][0],q[0][1]);
+      for (let i=1;i<4;i++) ctx.lineTo(q[i][0],q[i][1]);
+      ctx.strokeStyle = 'rgba(220,38,38,.65)';
+      ctx.setLineDash([6,4]);
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  // подписи комнат
+  ctx.font = '600 14px system-ui, sans-serif';
+  ctx.fillStyle = 'rgba(120,110,95,.75)';
+  for (const rl of roomLabels){
+    const p = proj(rl.p);
+    if (p[2] < 100) continue;
+    ctx.fillText(rl.t, p[0], p[1]);
+  }
+
+  ctx.font = '12px system-ui, sans-serif';
+
+  if (document.getElementById('showDims').checked){
+    for (const d of dims){
+      const a = proj(d.a), b = proj(d.b);
+      if (a[2] < 100 || b[2] < 100) continue;
+      const col = d.c ? '#dc2626' : '#2563eb';
+      const dx = b[0]-a[0], dy = b[1]-a[1];
+      const len = Math.hypot(dx,dy) || 1;
+      const px = -dy/len, py = dx/len;
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]);
+      ctx.moveTo(a[0]-px*7,a[1]-py*7); ctx.lineTo(a[0]+px*7,a[1]+py*7);
+      ctx.moveTo(b[0]-px*7,b[1]-py*7); ctx.lineTo(b[0]+px*7,b[1]+py*7);
+      ctx.stroke();
+      const mx = (a[0]+b[0])/2 + px*13, my = (a[1]+b[1])/2 + py*13;
+      const w = ctx.measureText(d.t).width + 10;
+      ctx.fillStyle = 'rgba(255,255,255,.88)';
+      ctx.beginPath();
+      ctx.roundRect(mx-w/2, my-9, w, 18, 5);
+      ctx.fill();
+      ctx.fillStyle = col;
+      ctx.fillText(d.t, mx, my);
+    }
+  }
+
+  // углы складывания
+  for (const lb of doors.labels){
+    const p = proj(lb.p);
+    if (p[2] < 100) continue;
+    const w = ctx.measureText(lb.t).width + 10;
+    ctx.fillStyle = 'rgba(90,74,50,.85)';
+    ctx.beginPath();
+    ctx.roundRect(p[0]-w/2, p[1]-9, w, 18, 5);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.fillText(lb.t, p[0], p[1]);
+  }
+
+  if (document.getElementById('showPlan').checked && W >= 900) renderPlan();
+}
+
+// врезка: план сверху — конструкция петель и зазоры с наличником, в реальном масштабе
+function renderPlan(){
+  const g = doorGeom();
+  const jL = P.pierL, jR = P.pierL + P.openW, fw = P.frameW;
+  const cw = P.casW, cT = P.casT;
+  const X0 = jL - 340, X1 = jR + 340;
+  const Z0 = -780, Z1 = 210;
+  const PW = Math.min(520, W - 340);
+  const s = PW / (X1 - X0);
+  const PH = (Z1 - Z0) * s;
+  const px = W - PW - 18, py = 46;
+  const mx = x => px + (x - X0) * s;
+  const mz = z => py + (Z1 - z) * s; // кухня сверху, гостиная снизу
+
+  ctx.fillStyle = 'rgba(255,255,255,.94)';
+  ctx.beginPath();
+  ctx.roundRect(px - 12, py - 32, PW + 24, PH + 48, 10);
+  ctx.fill();
+  ctx.strokeStyle = '#ddd';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.font = '600 12px system-ui, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#444';
+  ctx.fillText(`План: петли и наличник ${cw}×${cT} · кухня сверху, гостиная снизу`, px + PW/2, py - 18);
+
+  const rrect = (x0, z0, x1, z1, col) => {
+    ctx.fillStyle = col;
+    ctx.fillRect(mx(x0), mz(z1), (x1-x0)*s, (z1-z0)*s);
+  };
+  // простенки
+  rrect(X0, -P.t, jL, 0, '#d8d0c1');
+  rrect(jR, -P.t, X1, 0, '#d8d0c1');
+  // коробка
+  rrect(jL, -P.t, jL + fw, 0, '#a97e57');
+  rrect(jR - fw, -P.t, jR, 0, '#a97e57');
+  // наличники с обеих сторон
+  for (const [z0, z1] of [[-P.t - cT, -P.t], [0, cT]]){
+    rrect(jL - (cw - 20), z0, jL + 20, z1, '#b98a5e');
+    rrect(jR - 20, z0, jR + (cw - 20), z1, '#b98a5e');
+  }
+  // полотна и оси
+  ctx.lineWidth = 1.2;
+  for (const k of ['L','R']){
+    const p = doorPlan(k);
+    for (const q of [p.q1, p.q2]){
+      ctx.beginPath();
+      ctx.moveTo(mx(q[0][0]), mz(q[0][1]));
+      for (let i = 1; i < 4; i++) ctx.lineTo(mx(q[i][0]), mz(q[i][1]));
+      ctx.closePath();
+      ctx.fillStyle = '#f6f4ee';
+      ctx.fill();
+      ctx.strokeStyle = '#6b6b6b';
+      ctx.stroke();
+    }
+    ctx.fillStyle = '#dc2626';
+    ctx.beginPath(); ctx.arc(mx(p.xh), mz(p.g.zA), 3.5, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(mx(p.JA[0]), mz(p.JA[1]), 3.5, 0, 7); ctx.fill();
+  }
+  // размер выноса оси (у левой петли)
+  const lx = mx(jL - 170);
+  const y1 = mz(-P.t), y2 = mz(g.zA);
+  ctx.strokeStyle = '#dc2626';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(lx, y1); ctx.lineTo(lx, y2);
+  ctx.moveTo(lx - 5, y1); ctx.lineTo(lx + 5, y1);
+  ctx.moveTo(lx - 5, y2); ctx.lineTo(lx + 5, y2);
+  ctx.stroke();
+  ctx.fillStyle = '#dc2626';
+  ctx.font = '11px system-ui, sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText('вынос ' + g.off, lx - 4, (y1 + y2)/2);
+  ctx.textAlign = 'center';
+}
+
+function resize(){
+  const dpr = window.devicePixelRatio || 1;
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = W*dpr; canvas.height = H*dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  render();
+}
+window.addEventListener('resize', resize);
+
+// ---------- управление ----------
+function inPoly(x, y, pts){
+  let inside = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++){
+    const xi = pts[i][0], yi = pts[i][1], xj = pts[j][0], yj = pts[j][1];
+    if ((yi > y) !== (yj > y) && x < (xj - xi)*(y - yi)/(yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+function pickLeaf(x, y){
+  // сперва внешние полотна — при сложенном пакете они ближе к зрителю
+  for (const k of ['L2','R2','L1','R1'])
+    for (const f of leafScreens[k])
+      if (inPoly(x, y, f)) return k;
+  return null;
+}
+function doorRefs(tag){
+  const g = doorGeom();
+  const k = tag[0];
+  const sgn = k === 'L' ? 1 : -1;
+  const xh = k === 'L' ? g.xhL : g.xhR;
+  const d = ang[k];
+  const u1 = [sgn*Math.cos(d.a), 0, g.S*Math.sin(d.a)];
+  const m1 = [sgn*Math.sin(d.a), 0, -g.S*Math.cos(d.a)];
+  const JA = [
+    xh + m1[0]*g.off + u1[0]*(g.w+3) - m1[0]*g.jo, 10,
+    g.zA + m1[2]*g.off + u1[2]*(g.w+3) - m1[2]*g.jo
+  ];
+  return {g, k, sgn, xh, d, JA};
+}
+function ptrAng(cx, cz, sgn, S, pt){
+  return Math.atan2((pt[2] - cz) * S, (pt[0] - cx) * sgn);
+}
+
+let mode = null, grabOff = 0, lx = 0, ly = 0;
+canvas.addEventListener('pointerdown', e => {
+  let hit = pickLeaf(e.clientX, e.clientY);
+  // пакет сложен и прижат к стене: внешнее полотно всё равно заблокировано —
+  // перетаскивание за него поворачивает пристенное (весь пакет)
+  if (hit && hit[1] === '2' && ang[hit[0]].a > Math.PI - 10*DEG && ang[hit[0]].b > Math.PI - 10*DEG){
+    hit = hit[0] + '1';
+  }
+  if (hit){
+    mode = hit;
+    const pt = unprojToPlane(e.clientX, e.clientY, 1200);
+    if (pt){
+      const r = doorRefs(hit);
+      grabOff = hit[1] === '1'
+        ? r.d.a - ptrAng(r.xh, r.g.zA, r.sgn, r.g.S, pt)
+        : (r.d.a + r.d.b) - ptrAng(r.JA[0], r.JA[2], r.sgn, r.g.S, pt);
+    } else grabOff = 0;
+  } else {
+    mode = 'orbit';
+    canvas.classList.add('drag');
+  }
+  lx = e.clientX; ly = e.clientY;
+  canvas.setPointerCapture(e.pointerId);
+});
+canvas.addEventListener('pointermove', e => {
+  if (mode === 'orbit'){
+    yaw += (e.clientX - lx) * 0.005;
+    pitch += (e.clientY - ly) * 0.005;
+    pitch = Math.max(-1.5, Math.min(0.05, pitch));
+    lx = e.clientX; ly = e.clientY;
+    render();
+  } else if (mode && mode !== 'orbit'){
+    const pt = unprojToPlane(e.clientX, e.clientY, 1200);
+    if (pt){
+      const r = doorRefs(mode);
+      const TWO = 2*Math.PI;
+      const snap = v => {
+        v = ((v % TWO) + TWO) % TWO;
+        if (v > 1.5*Math.PI) v = 0;          // перетянули за «закрыто»
+        else if (v > Math.PI) v = Math.PI;   // перетянули за «плашмя»
+        if (v < 3*DEG) v = 0;                // прищёлкивание: закрыто/развёрнуто
+        else if (v > Math.PI - 3*DEG) v = Math.PI; // прищёлкивание: 180°
+        return v;
+      };
+      if (mode[1] === '1'){
+        setAngleClamped(r.k, 'a', snap(ptrAng(r.xh, r.g.zA, r.sgn, r.g.S, pt) + grabOff));
+      } else {
+        const a2 = ptrAng(r.JA[0], r.JA[2], r.sgn, r.g.S, pt) + grabOff;
+        setAngleClamped(r.k, 'b', snap(a2 - r.d.a));
+      }
+      render();
+    }
+  } else {
+    canvas.style.cursor = pickLeaf(e.clientX, e.clientY) ? 'pointer' : 'grab';
+  }
+});
+canvas.addEventListener('pointerup', () => { mode = null; canvas.classList.remove('drag'); });
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  dist = Math.max(2500, Math.min(30000, dist * Math.exp(e.deltaY * 0.0012)));
+  render();
+}, {passive:false});
+
+// ---------- панель ----------
+const fieldsEl = document.getElementById('fields');
+for (const [key,label] of FIELDS){
+  const row = document.createElement('div');
+  row.className = 'row';
+  const lab = document.createElement('label');
+  lab.textContent = label;
+  const inp = document.createElement('input');
+  inp.type = 'number'; inp.value = P[key]; inp.min = 0; inp.step = 5;
+  inp.id = 'f_' + key;
+  inp.addEventListener('input', () => {
+    const v = parseFloat(inp.value);
+    if (isFinite(v) && v >= 0){ P[key] = v; rebuild(); render(); }
+  });
+  row.append(lab, inp);
+  fieldsEl.append(row);
+}
+function setView(y,p,d){ yaw=y; pitch=p; dist=d; render(); }
+document.getElementById('v1').onclick = () => setView(0.45, -0.26, 12000);
+document.getElementById('v4').onclick = () => setView(Math.PI-0.5, -0.28, 11500);
+document.getElementById('v2').onclick = () => setView(0.06, -0.05, 12500);
+document.getElementById('v3').onclick = () => setView(0.45, -1.45, 13000);
+// ползунки: точное управление углами (уважают физику — упираются в момент касания)
+const SLIDERS = [['sLa','L','a'],['sLb','L','b'],['sRa','R','a'],['sRb','R','b']];
+for (const [id, k, key] of SLIDERS){
+  document.getElementById(id).addEventListener('input', e => {
+    const v = parseFloat(e.target.value) * DEG;
+    if (document.getElementById('syncDoors').checked){
+      setAngleClamped('L', key, v);
+      setAngleClamped('R', key, v);
+    } else {
+      setAngleClamped(k, key, v);
+    }
+    render();
+  });
+}
+function syncSliders(){
+  for (const [id, k, key] of SLIDERS){
+    const deg = Math.round(ang[k][key] / DEG);
+    const el = document.getElementById(id);
+    if (el.valueAsNumber !== deg) el.value = deg;
+    document.getElementById('v' + id.slice(1)).textContent = deg + '°';
+  }
+}
+
+const setDoors = (a, b) => { ang.L.a = a; ang.L.b = b; ang.R.a = a; ang.R.b = b; render(); };
+document.getElementById('bHalf').onclick = () => setDoors(0, Math.PI);          // сложены только половинки
+document.getElementById('bPack').onclick = () => setDoors(Math.PI/2, Math.PI);  // пакет перпендикулярно стене
+document.getElementById('bOpen').onclick = () => setDoors(Math.PI, Math.PI);    // пакет плашмя на стену
+document.getElementById('bClose').onclick = () => setDoors(0, 0);
+document.getElementById('sideBack').addEventListener('change', render);
+document.getElementById('showDims').addEventListener('change', render);
+document.getElementById('showPlan').addEventListener('change', render);
+document.getElementById('hingeSel').addEventListener('change', e => {
+  let type = 'parl', v;
+  if (e.target.value === 'auto'){
+    v = Math.round(((P.casT + P.doorTh)/2 + P.midDia/2 + 2)*10)/10;
+  } else {
+    const parts = e.target.value.split(':');
+    type = parts[0];
+    v = parseFloat(parts[1]);
+  }
+  if (isFinite(v)){
+    P.hingeType = type;
+    P.hingeOff = v;
+    const f = document.getElementById('f_hingeOff');
+    if (f) f.value = v;
+    rebuild(); render();
+  }
+});
+
+window.__setCam = (y,p,d) => { yaw=y; pitch=p; dist=d; render(); return [yaw,pitch,dist]; };
+window.__getCam = () => [yaw, pitch, dist, W, H];
+window.__setAng = (la,lb,ra,rb) => { ang.L = {a:la*DEG, b:lb*DEG}; ang.R = {a:ra*DEG, b:rb*DEG}; render(); };
+
+rebuild();
+resize();
+</script>
+</body>
+</html>
