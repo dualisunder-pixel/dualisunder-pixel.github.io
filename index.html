@@ -32,24 +32,24 @@
   details a{color:#1d4ed8;text-decoration:none}
   details a:hover{text-decoration:underline}
   #hint{position:fixed;right:14px;bottom:10px;z-index:2;font-size:12px;color:#888;background:rgba(255,255,255,.7);padding:2px 8px;border-radius:6px}
+  body[data-lang="en"] .l-ru{display:none}
+  body[data-lang="ru"] .l-en{display:none}
 </style>
 </head>
 <body>
 <div id="panel">
-  <h1>Дверной проём — 3D схема</h1>
-  <p class="muted">По эскизу. Кухня — за проёмом, гостиная — перед ним; двери складываются наружу, в гостиную. Все размеры в мм — правьте, модель перестроится. Тяните любое полотно мышкой.</p>
-  <div class="derived">
-    Проём: <b><span id="dW"></span> × <span id="dH"></span></b> мм<br>
-    В свету (после коробки): <b><span id="dCl"></span></b> мм<br>
-    Полотна: <b>4 × <span id="dS"></span></b> мм, толщина <span id="dT"></span> мм<br>
-    Высота потолка: <b><span id="dC"></span></b> мм<br>
-    Стена целиком: <b><span id="dL"></span></b> мм<br>
-    <span id="dGap"></span><br>
-    <span id="dPack"></span><br>
-    Вынос оси петель: <b><span id="dOff"></span></b> мм
+  <div class="row" style="margin:0 0 8px">
+    <label style="font-weight:600">Language / Язык</label>
+    <select id="langSel">
+      <option value="en" selected>English</option>
+      <option value="ru">Русский</option>
+    </select>
   </div>
+  <h1 id="tTitle">Дверной проём — 3D схема</h1>
+  <p class="muted" id="tIntro"></p>
+  <div class="derived" id="derived"></div>
   <div class="row">
-    <label>Петля у коробки</label>
+    <label id="tHinge">Петля у коробки</label>
     <select id="hingeSel">
       <option value="parl:51" selected>Parliament 102×152 (ось 51)</option>
       <option value="parl:38">Parliament 102×127 (ось 38)</option>
@@ -61,7 +61,7 @@
     </select>
   </div>
   <div class="row">
-    <label>Петля створок</label>
+    <label id="tMid">Петля створок</label>
     <select id="midSel">
       <option value="conc" selected>Скрытая 180° (Tectus)</option>
       <option value="brass">Латунная накладная</option>
@@ -74,29 +74,55 @@
     <button id="bClose">Закрыть</button>
   </div>
   <div class="dgrp">
-    <div class="dhead">Левая дверь</div>
-    <div class="drow"><span>поворот</span><input type="range" id="sLa" min="0" max="180" step="1"><b id="vLa"></b></div>
-    <div class="drow"><span>складка</span><input type="range" id="sLb" min="0" max="180" step="1"><b id="vLb"></b></div>
+    <div class="dhead" id="tDoorL">Левая дверь</div>
+    <div class="drow"><span class="tRot">поворот</span><input type="range" id="sLa" min="0" max="180" step="1"><b id="vLa"></b></div>
+    <div class="drow"><span class="tFold">складка</span><input type="range" id="sLb" min="0" max="180" step="1"><b id="vLb"></b></div>
   </div>
   <div class="dgrp">
-    <div class="dhead">Правая дверь</div>
-    <div class="drow"><span>поворот</span><input type="range" id="sRa" min="0" max="180" step="1"><b id="vRa"></b></div>
-    <div class="drow"><span>складка</span><input type="range" id="sRb" min="0" max="180" step="1"><b id="vRb"></b></div>
+    <div class="dhead" id="tDoorR">Правая дверь</div>
+    <div class="drow"><span class="tRot">поворот</span><input type="range" id="sRa" min="0" max="180" step="1"><b id="vRa"></b></div>
+    <div class="drow"><span class="tFold">складка</span><input type="range" id="sRb" min="0" max="180" step="1"><b id="vRb"></b></div>
   </div>
-  <label class="chk" style="margin-top:2px"><input type="checkbox" id="syncDoors" checked> двигать обе двери синхронно</label>
+  <label class="chk" style="margin-top:2px"><input type="checkbox" id="syncDoors" checked> <span id="tSync">двигать обе двери синхронно</span></label>
   <div id="fields"></div>
-  <label class="chk"><input type="checkbox" id="sideBack"> складывать в кухню (в обратную сторону)</label>
+  <label class="chk"><input type="checkbox" id="sideBack"> <span id="tSideBack">складывать в кухню (в обратную сторону)</span></label>
   <div class="btns">
     <button id="v1">Из гостиной</button>
     <button id="v4">Из кухни</button>
     <button id="v2">Фронтально</button>
     <button id="v3">Сверху</button>
   </div>
-  <label class="chk"><input type="checkbox" id="showDims" checked> показывать размеры</label>
-  <label class="chk"><input type="checkbox" id="showPlan" checked> план петель (вид сверху)</label>
+  <label class="chk"><input type="checkbox" id="showDims" checked> <span id="tShowDims">показывать размеры</span></label>
+  <label class="chk"><input type="checkbox" id="showPlan" checked> <span id="tShowPlan">план петель (вид сверху)</span></label>
   <details>
-    <summary>Нюансы конструкции</summary>
-    <ul>
+    <summary id="tNuances">Нюансы конструкции</summary>
+    <ul class="l-en">
+      <li>Two bifold doors, each made of two ~503 mm leaves — four 40 mm leaves total. Four hinges per leaf, symmetric: 220 mm from each end, two intermediate evenly spaced; same layout at the jamb and at the leaf joint.</li>
+      <li>Leaves move independently. The outer leaf folds back onto the wall-side leaf up to 180° without moving it — this frees the ~1015 mm centre of the opening while the wall-side halves stay shut (the “Half-fold” button). The wall-side leaf swings 0–180° on its jamb hinges; together that gives the 90° stack and the full 180° fold to the wall.</li>
+      <li>In the stack the gap between leaves equals the joint-hinge knuckle: ~7 mm with the concealed one, 13 mm with the surface-mounted butt — the flush pulls fit either way.</li>
+      <li><b>Minimum pivot offset</b> = (architrave 25 + leaf 40)/2 + half the stack gap: ≈ <b>36 mm</b> with the concealed joint hinge (Ø7), ≈ 39 mm with the butt (Ø13). With ordinary butt hinges at the jamb (pivot at the leaf edge) the stack hits the architrave and never reaches 180° — the key finding of this mock-up.</li>
+      <li><b>Real hinges that give 180° past an architrave are parliament (projection) hinges</b>: sizes 102×102 / 102×127 / 102×152 mm, projection 50 / 76 / 102 → pivot ~25 / 38 / 51 mm out. With a 40 mm leaf, 25 mm architrave and the concealed joint hinge (Ø7): <b>102×152 — ~30 mm to spare, 102×127 — ~4 mm (passes)</b>, 102×102 — hits. With the butt joint hinge (Ø13) margins shrink by 6 mm (102×127 no longer passes). For interiors look for decorative brass / bronze / matt black finishes.</li>
+      <li><b>Where to buy</b>:
+        <ul>
+          <li><a href="https://www.carlislebrass.com/parliament-hinges-42109" target="_blank" rel="noopener">Carlisle Brass — Parliament Hinges</a> — interior brass/polished, up to 102×152 (pivot ~51 mm) — <b>suitable for 180°</b>.</li>
+          <li><a href="https://www.suffolklatchcompany.com/products/parliament-hinges" target="_blank" rel="noopener">Suffolk Latch — Parliament Old English</a> — cast brass, 5 finishes, but projection 48 → pivot ~24 mm: not enough for this stack (behaves like the 102×102 preset).</li>
+          <li><a href="https://www.cookebrothers.co.uk/hinges/architectural-hinges/special-options/projection-parliament-hinges.html" target="_blank" rel="noopener">Cooke Brothers — Projection &amp; Parliament</a> — custom projections if you need an exact 40–50 mm pivot.</li>
+          <li><a href="https://www.gjohns.co.uk/parliament-projection-hinges-for-doors-up-to-120kg-matt-black.html" target="_blank" rel="noopener">G Johns — Hi-Load Projection, matt black</a> — steel, up to 120 kg.</li>
+          <li><a href="https://www.championtimber.com/parliament-hinge-2-pack-21896453-c" target="_blank" rel="noopener">Champion Timber — 100 mm parliament pair</a> — budget option.</li>
+          <li><a href="https://hafele-shop.ru/catalog/furnitura-dlya-dverey/dvernye-petli/skrytye-simonswerk/skrytaya-dvernaya-petlya-tectus-te-340-3d-cvet-f1-serebristyj.html" target="_blank" rel="noopener">Häfele — concealed Simonswerk Tectus TE 340 3D</a>, <a href="http://dvermeh.ru/tectus" target="_blank" rel="noopener">Tectus series overview</a> — for the “stack to ~90°” option.</li>
+        </ul>
+      </li>
+      <li><b>“Plain brass butt” at the jamb</b> — mortised hinge with a Ø13 knuckle at the leaf edge (pivot ~7 mm): neat look (only the brass knuckle shows in the gap), but the stack hits the architrave at ~58° and cannot fold flat to the wall. Pick it for the “half-fold + stack by the reveal” scenario.</li>
+      <li><b>Concealed hinges (Tectus/Kubica/Anselmi) cannot do this job geometrically</b>: their pivot sits at the frame plane (even the TE 311/541 3D offset is only 12–14 mm) while the stack needs ~36 mm. Same for floor pivots — the axis sits inside the leaf. Choose a “Concealed” preset and watch the physics stop the stack at ~72°. <b>A good compromise with concealed hinges</b>: fold the stack to ~90° — it stands by the reveal, the opening is fully clear, no visible hardware (protrudes ~560 mm into the living room).</li>
+      <li><b>Physics is on</b>: leaves never pass through the wall or architraves — the angle stops at contact. To unfold a stack pressed against the wall, swing the wall-side leaf away first.</li>
+      <li>Controls: drag any leaf with the mouse, or use the “swing”/“fold” sliders (1° precision, physics applies). “Move both doors together” mirrors them.</li>
+      <li>At 180° the stack lies along the pier over the architrave (gap shown in the indicator; ~30 mm with the 102×152 hinge): it protrudes ≈ 140 mm from the wall and takes ~510 mm along it. At 90° the stack sticks ~560 mm into the living room.</li>
+      <li>Architraves 95 × 25 mm on both sides. The top piece needs 75 mm above the opening (95 − 20 mm frame overlap): with 76 mm to the ceiling it fits with just 1 mm to spare — the indicator recalculates as you edit.</li>
+      <li>Upper part of each leaf is glazed with muntins, lower part panelled (per the reference photo). Pulls are flush-mounted — surface handles would keep the leaves from stacking.</li>
+      <li><b>Leaf joint hinge — the “Leaf joint hinge” selector</b>. “Concealed 180°” (Simonswerk Tectus TE 340, Kubica, Anselmi — mortised into both leaf edges): invisible when unfolded, ~7 mm stack gap; works with any jamb hinge. “Brass surface-mounted” (butt 100×70×2.5): visible on the living-room side, Ø13 knuckle → 13 mm stack gap and +3 mm required jamb pivot. Fine-tune via “Joint knuckle Ø”.</li>
+      <li>The doors fold outward, from the kitchen into the living room; the checkbox reverses the side.</li>
+    </ul>
+    <ul class="l-ru">
       <li>Две двери-«книжки», каждая из двух полотен по ~503 мм — всего 4 полотна толщиной 40 мм. Петель — по 4 на полотно, симметрично: по 220 мм от торцов полотна, две промежуточные равномерно; одинаково у коробки и на среднем шарнире.</li>
       <li>Полотна двигаются независимо. Внешнее (у притвора) складывается средним шарниром на пристенное до 180°, не двигая его — так освобождается центр проёма ~1015 мм, а пристенные половинки остаются на месте (кнопка «Половинки»). Пристенное полотно отдельно поворачивается на петлях у коробки 0–180°; вместе это даёт пакет (90°) и полное откидывание на стену (180°).</li>
       <li>В пакете зазор между полотнами равен «бочке» среднего шарнира: со скрытой ~7 мм, с накладной карточной 13 мм — врезные ручки помещаются в обоих случаях.</li>
@@ -131,6 +157,7 @@
 'use strict';
 const DEG = Math.PI/180;
 const MAXF = Math.PI; // 180° — пакет плашмя к стене
+let LANG = 'en';      // язык интерфейса; словарь T — в конце файла
 const P = {
   pierL: 720, openW: 2110, pierR: 770,
   openH: 2395, above: 76, t: 140,
@@ -232,8 +259,8 @@ function rebuild(){
   chair(1800, -2200, 1600, 2000, -2460, -2400); // со стороны зрителя
 
   roomLabels = [
-    {p: [2500, 20, 1500], t: 'КУХНЯ'},
-    {p: [750, 20, -1900], t: 'ГОСТИНАЯ'}
+    {p: [2500, 20, 1500], t: T[LANG].kitchen},
+    {p: [750, 20, -1900], t: T[LANG].living}
   ];
 
   // стена с проёмом, z: -t..0
@@ -277,23 +304,19 @@ function rebuild(){
   dims.push({a:[130, 26, 0],             b:[130, 26, P.Lleft],       t:String(P.Lleft)});
 
   const g = doorGeom();
+  const t = T[LANG];
   const capGap = P.above - (P.casW - 20); // влезет ли наличник над проёмом до потолка
-  document.getElementById('dGap').innerHTML = capGap >= 0
-    ? `Наличник над проёмом: <b style="color:#15803d">помещается, зазор ${capGap} мм</b>`
-    : `Наличник над проёмом: <b style="color:#dc2626">НЕ помещается, не хватает ${-capGap} мм</b>`;
-  document.getElementById('dOff').textContent = g.off;
-  // пройдёт ли пакет на 180° мимо наличника с выбранной петлёй
-  const pack180 = Math.round(2*(g.off - g.jo) - P.doorTh - P.casT);
-  document.getElementById('dPack').innerHTML = pack180 >= 0
-    ? `Пакет на 180°: <b style="color:#15803d">проходит наличник, зазор ${pack180} мм</b>`
-    : `Пакет на 180°: <b style="color:#dc2626">упрётся в наличник, не хватает ${-pack180} мм</b>`;
-  document.getElementById('dW').textContent = P.openW;
-  document.getElementById('dH').textContent = P.openH;
-  document.getElementById('dCl').textContent = (P.openW - 2*fw) + ' × ' + (P.openH - fw);
-  document.getElementById('dS').textContent = Math.round(g.w) + ' × ' + Math.round(g.h);
-  document.getElementById('dT').textContent = P.doorTh;
-  document.getElementById('dC').textContent = cH;
-  document.getElementById('dL').textContent = FL;
+  const pack180 = Math.round(2*(g.off - g.jo) - P.doorTh - P.casT); // пройдёт ли пакет мимо наличника
+  document.getElementById('derived').innerHTML =
+    t.derived({
+      oW: P.openW, oH: P.openH,
+      cw: P.openW - 2*fw, ch: P.openH - fw,
+      lw: Math.round(g.w), lh: Math.round(g.h), th: P.doorTh,
+      ceil: cH, wall: FL
+    })
+    + '<br>' + (capGap >= 0 ? t.capOk(capGap) : t.capFail(-capGap))
+    + '<br>' + (pack180 >= 0 ? t.packOk(pack180) : t.packFail(-pack180))
+    + '<br>' + t.offset(g.off);
 }
 
 // ---------- двери-книжки ----------
@@ -506,7 +529,7 @@ function doorSolids(){
       labels.push({p: [p1[0], 10 + g.h + 110, p1[2]], t: Math.round(d.a/DEG) + '°'});
     }
     if (d.b > 3*DEG){
-      labels.push({p: [JA[0], 10 + g.h + 240, JA[2]], t: 'складка ' + Math.round(d.b/DEG) + '°'});
+      labels.push({p: [JA[0], 10 + g.h + 240, JA[2]], t: T[LANG].foldLbl + ' ' + Math.round(d.b/DEG) + '°'});
     }
   }
   return {out, labels};
@@ -717,7 +740,7 @@ function renderPlan(){
   ctx.font = '600 12px system-ui, sans-serif';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillStyle = '#444';
-  ctx.fillText(`План: петли и наличник ${cw}×${cT} · кухня сверху, гостиная снизу`, px + PW/2, py - 18);
+  ctx.fillText(T[LANG].planTitle(cw, cT), px + PW/2, py - 18);
 
   const rrect = (x0, z0, x1, z1, col) => {
     ctx.fillStyle = col;
@@ -765,7 +788,7 @@ function renderPlan(){
   ctx.fillStyle = '#dc2626';
   ctx.font = '11px system-ui, sans-serif';
   ctx.textAlign = 'right';
-  ctx.fillText('вынос ' + g.off, lx - 4, (y1 + y2)/2);
+  ctx.fillText(T[LANG].offLbl + ' ' + g.off, lx - 4, (y1 + y2)/2);
   ctx.textAlign = 'center';
 }
 
@@ -883,6 +906,7 @@ for (const [key,label] of FIELDS){
   row.className = 'row';
   const lab = document.createElement('label');
   lab.textContent = label;
+  lab.id = 'fl_' + key;
   const inp = document.createElement('input');
   inp.type = 'number'; inp.value = P[key]; inp.min = 0; inp.step = 5;
   inp.id = 'f_' + key;
@@ -958,7 +982,100 @@ window.__setCam = (y,p,d) => { yaw=y; pitch=p; dist=d; render(); return [yaw,pit
 window.__getCam = () => [yaw, pitch, dist, W, H];
 window.__setAng = (la,lb,ra,rb) => { ang.L = {a:la*DEG, b:lb*DEG}; ang.R = {a:ra*DEG, b:rb*DEG}; render(); };
 
-rebuild();
+// ---------- локализация ----------
+const T = {
+  en: {
+    docTitle: 'Doorway — 3D Model',
+    title: 'Doorway — 3D Model',
+    intro: 'From the site sketch. Kitchen behind the opening, living room in front; the doors fold outward into the living room. All dimensions in mm — edit any value and the model rebuilds. Drag any leaf with the mouse.',
+    hinge: 'Jamb hinge', mid: 'Leaf joint hinge',
+    hingeOpts: ['Parliament 102×152 (pivot 51)','Parliament 102×127 (pivot 38)','Parliament 102×102 (pivot 25)','Plain brass butt (pivot ~7)','Concealed Tectus TE 541 (pivot 14)','Concealed, standard (pivot ~8)','calculated minimum'],
+    midOpts: ['Concealed 180° (Tectus)','Brass surface-mounted'],
+    bHalf: 'Half-fold', bPack: 'Stack (90°)', bOpen: 'Flat to wall (180°)', bClose: 'Close',
+    doorL: 'Left door', doorR: 'Right door', rot: 'swing', fold: 'fold',
+    sync: 'move both doors together',
+    sideBack: 'fold toward the kitchen (reverse)',
+    v1: 'From living room', v4: 'From kitchen', v2: 'Front', v3: 'Top',
+    showDims: 'show dimensions', showPlan: 'hinge plan (top view)',
+    nuances: 'Construction notes',
+    hint: 'Drag leaves with the mouse or use the sliders · drag background to orbit · wheel to zoom',
+    kitchen: 'KITCHEN', living: 'LIVING ROOM',
+    foldLbl: 'fold', offLbl: 'offset',
+    planTitle: (w, t) => `Plan: hinges & architrave ${w}×${t} · kitchen top, living room bottom`,
+    fields: {
+      pierL: 'Pier left of opening', openW: 'Opening width', pierR: 'Pier right of opening',
+      openH: 'Opening height', above: 'Opening to ceiling', t: 'Wall thickness',
+      doorTh: 'Leaf thickness', frameW: 'Frame member', casW: 'Architrave width',
+      casT: 'Architrave thickness', hingeOff: 'Hinge pivot offset', midDia: 'Joint knuckle Ø',
+      Lleft: 'Window wall length', winOff: 'Corner to window', winW: 'Window width',
+      sillH: 'Window sill height', winH: 'Window height'
+    },
+    derived: v => `Opening: <b>${v.oW} × ${v.oH}</b> mm<br>Clear (inside frame): <b>${v.cw} × ${v.ch}</b> mm<br>Leaves: <b>4 × ${v.lw} × ${v.lh}</b> mm, ${v.th} mm thick<br>Ceiling height: <b>${v.ceil}</b> mm<br>Wall total: <b>${v.wall}</b> mm`,
+    capOk: g => `Architrave above opening: <b style="color:#15803d">fits, ${g} mm to spare</b>`,
+    capFail: g => `Architrave above opening: <b style="color:#dc2626">does NOT fit, ${g} mm short</b>`,
+    packOk: g => `Stack at 180°: <b style="color:#15803d">clears the architrave, ${g} mm gap</b>`,
+    packFail: g => `Stack at 180°: <b style="color:#dc2626">hits the architrave, ${g} mm short</b>`,
+    offset: o => `Hinge pivot offset: <b>${o}</b> mm`
+  },
+  ru: {
+    docTitle: 'Дверной проём — 3D схема',
+    title: 'Дверной проём — 3D схема',
+    intro: 'По эскизу. Кухня — за проёмом, гостиная — перед ним; двери складываются наружу, в гостиную. Все размеры в мм — правьте, модель перестроится. Тяните любое полотно мышкой.',
+    hinge: 'Петля у коробки', mid: 'Петля створок',
+    hingeOpts: ['Parliament 102×152 (ось 51)','Parliament 102×127 (ось 38)','Parliament 102×102 (ось 25)','Обычная латунная (ось ~7)','Скрытая Tectus TE 541 (ось 14)','Скрытая обычная (ось ~8)','расчётный минимум'],
+    midOpts: ['Скрытая 180° (Tectus)','Латунная накладная'],
+    bHalf: 'Половинки', bPack: 'В пакет (90°)', bOpen: 'На стену (180°)', bClose: 'Закрыть',
+    doorL: 'Левая дверь', doorR: 'Правая дверь', rot: 'поворот', fold: 'складка',
+    sync: 'двигать обе двери синхронно',
+    sideBack: 'складывать в кухню (в обратную сторону)',
+    v1: 'Из гостиной', v4: 'Из кухни', v2: 'Фронтально', v3: 'Сверху',
+    showDims: 'показывать размеры', showPlan: 'план петель (вид сверху)',
+    nuances: 'Нюансы конструкции',
+    hint: 'Створки — мышкой или ползунками в панели · фон — вращение · колесо — масштаб',
+    kitchen: 'КУХНЯ', living: 'ГОСТИНАЯ',
+    foldLbl: 'складка', offLbl: 'вынос',
+    planTitle: (w, t) => `План: петли и наличник ${w}×${t} · кухня сверху, гостиная снизу`,
+    fields: {
+      pierL: 'Простенок слева от проёма', openW: 'Ширина проёма', pierR: 'Простенок справа',
+      openH: 'Высота проёма', above: 'От проёма до потолка', t: 'Толщина стены (торец)',
+      doorTh: 'Полотно: толщина', frameW: 'Коробка: брус', casW: 'Наличник: ширина',
+      casT: 'Наличник: толщина', hingeOff: 'Петля: вынос оси', midDia: 'Ср. шарнир: Ø бочки',
+      Lleft: 'Стена с окном, длина', winOff: 'От угла до окна', winW: 'Окно: ширина',
+      sillH: 'Окно: подоконник', winH: 'Окно: высота'
+    },
+    derived: v => `Проём: <b>${v.oW} × ${v.oH}</b> мм<br>В свету (после коробки): <b>${v.cw} × ${v.ch}</b> мм<br>Полотна: <b>4 × ${v.lw} × ${v.lh}</b> мм, толщина ${v.th} мм<br>Высота потолка: <b>${v.ceil}</b> мм<br>Стена целиком: <b>${v.wall}</b> мм`,
+    capOk: g => `Наличник над проёмом: <b style="color:#15803d">помещается, зазор ${g} мм</b>`,
+    capFail: g => `Наличник над проёмом: <b style="color:#dc2626">НЕ помещается, не хватает ${g} мм</b>`,
+    packOk: g => `Пакет на 180°: <b style="color:#15803d">проходит наличник, зазор ${g} мм</b>`,
+    packFail: g => `Пакет на 180°: <b style="color:#dc2626">упрётся в наличник, не хватает ${g} мм</b>`,
+    offset: o => `Вынос оси петель: <b>${o}</b> мм`
+  }
+};
+
+function applyLang(l){
+  LANG = l;
+  const t = T[l];
+  document.title = t.docTitle;
+  document.body.dataset.lang = l;
+  const set = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+  set('tTitle', t.title); set('tIntro', t.intro);
+  set('tHinge', t.hinge); set('tMid', t.mid);
+  set('bHalf', t.bHalf); set('bPack', t.bPack); set('bOpen', t.bOpen); set('bClose', t.bClose);
+  set('tDoorL', t.doorL); set('tDoorR', t.doorR);
+  document.querySelectorAll('.tRot').forEach(e => e.textContent = t.rot);
+  document.querySelectorAll('.tFold').forEach(e => e.textContent = t.fold);
+  set('tSync', t.sync); set('tSideBack', t.sideBack);
+  set('v1', t.v1); set('v4', t.v4); set('v2', t.v2); set('v3', t.v3);
+  set('tShowDims', t.showDims); set('tShowPlan', t.showPlan);
+  set('tNuances', t.nuances); set('hint', t.hint);
+  Array.from(document.getElementById('hingeSel').options).forEach((o, i) => o.textContent = t.hingeOpts[i]);
+  Array.from(document.getElementById('midSel').options).forEach((o, i) => o.textContent = t.midOpts[i]);
+  for (const [key] of FIELDS) set('fl_' + key, t.fields[key]);
+  rebuild(); render();
+}
+document.getElementById('langSel').addEventListener('change', e => applyLang(e.target.value));
+
+applyLang('en');
 resize();
 </script>
 </body>
